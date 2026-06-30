@@ -1,251 +1,136 @@
-# QueryAgent — Natural-Language Data Analysis Agent
+# Automated Tabular Data Agent & Insight Engine
 
-> Upload a CSV. Ask anything in plain English. Get answers and charts.
+Natural-language data analysis app for CSV files. Upload a tabular dataset, ask questions in plain English, and get SQL-backed answers, charts, and anomaly detection through an agentic tool-calling loop.
 
-**Built by Somrita Majumdar** — B.Tech CSE, SRM IST · Data Analyst Intern @ Development Alternatives
+## Features
 
----
-
-## What It Does
-
-QueryAgent is a full-stack AI agent that lets anyone — no SQL required — have a conversation with their data.
-
-You upload a CSV. The agent:
-1. Loads it into an in-memory SQLite database
-2. Understands the schema automatically
-3. Translates your plain-English questions into SQL, executes them, and interprets the results
-4. Generates charts on demand (bar, line, pie, scatter, histogram)
-5. Detects statistical anomalies/outliers in numeric columns
-6. Remembers conversation context so follow-up questions work naturally
-
----
-
-## Demo
-
-**Sample questions that work out of the box (with the included NGO survey dataset):**
-
-| Question | What happens |
-|---|---|
-| "Which region had the highest dropout rate?" | Runs a GROUP BY query, calculates dropout %, returns ranked answer |
-| "Show me a bar chart of survey status breakdown" | Runs query + generates dark-themed chart image |
-| "What's the average satisfaction score by region?" | Aggregation query + natural-language interpretation |
-| "Are there anomalies in monthly income?" | IQR-based outlier detection, returns flagged rows |
-| "Show me survey completions by month as a line chart" | Date parsing + trend line chart |
-| "How many surveys does each field worker have?" | GROUP BY surveyor with count |
-
----
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────┐
-│                    React Frontend                    │
-│  UploadPanel → ChatPanel → SchemaPanel               │
-│  (Vite + Space Grotesk + dark data-tool aesthetic)   │
-└──────────────────────┬──────────────────────────────┘
-                       │ HTTP (REST)
-┌──────────────────────▼──────────────────────────────┐
-│                  Flask Backend                       │
-│  /api/upload  →  parse CSV → SQLite                  │
-│  /api/query   →  Agent Loop                          │
-│  /api/sample  →  load bundled dataset                │
-└──────────────────────┬──────────────────────────────┘
-                       │ Anthropic API
-┌──────────────────────▼──────────────────────────────┐
-│              Claude claude-sonnet-4-6 (Tool-Calling)            │
-│                                                      │
-│  Tool: run_sql_query    → sqlite3 execution          │
-│  Tool: generate_chart   → matplotlib PNG             │
-│  Tool: detect_anomalies → IQR outlier detection      │
-└─────────────────────────────────────────────────────┘
-```
-
-### Agent Loop (backend/app.py)
-
-The agent uses a `while stop_reason != "end_turn"` loop:
-1. Send user message + conversation history to Claude with tool definitions
-2. If Claude calls a tool → execute it locally → send `tool_result` back
-3. Claude may call multiple tools in sequence (e.g. run_sql_query then generate_chart)
-4. When Claude stops calling tools, collect its final text response
-5. Return text + charts + tool call log to the frontend
-
-This is **real tool-calling / function-calling** — not prompt chaining. Claude decides which tools to call and in what order.
-
----
+- CSV upload with automatic schema discovery
+- In-memory SQLite database for fast tabular querying
+- Natural-language questions answered with generated SQL
+- Chart generation for bar, line, pie, scatter, and histogram views
+- IQR-based anomaly detection for numeric columns
+- Multi-turn conversation context for follow-up questions
+- Bundled sample NGO survey dataset for quick demos
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Frontend | React 18, Vite, CSS (no component library) |
-| Backend | Python 3.11+, Flask 3, Flask-CORS |
-| AI | Anthropic API (`claude-sonnet-4-6`) with tool use |
-| Data layer | SQLite (via pandas + sqlite3) |
-| Charts | Matplotlib (headless, Agg backend) |
-| Deployment | Any Linux/Mac with Python + Node |
-
----
+| Layer | Tools |
+| --- | --- |
+| Frontend | React 18, Vite, CSS |
+| Backend | Python, Flask, Flask-CORS |
+| Data | pandas, SQLite |
+| AI | Anthropic API tool calling |
+| Charts | Matplotlib |
 
 ## Project Structure
 
-```
+```text
 queryagent/
 ├── backend/
-│   ├── app.py              # Flask app + agent loop + tools
-│   └── requirements.txt    # Python deps
+│   ├── app.py
+│   └── requirements.txt
 ├── frontend/
 │   ├── src/
-│   │   ├── App.jsx         # Root — session state + routing
-│   │   ├── index.css       # All styles (design tokens + components)
+│   │   ├── App.jsx
+│   │   ├── index.css
 │   │   └── components/
-│   │       ├── UploadPanel.jsx   # Drag-drop upload + sample loader
-│   │       ├── ChatPanel.jsx     # Messages + chart rendering + input
-│   │       └── SchemaPanel.jsx   # Collapsible column / schema sidebar
-│   ├── index.html
 │   ├── package.json
 │   └── vite.config.js
 ├── sample_data/
-│   ├── generate_sample.py  # Script to regenerate sample CSV
-│   └── survey_data.csv     # 300-row NGO survey dataset (bundled)
-└── README.md
+│   ├── generate_sample.py
+│   └── survey_data.csv
+├── docs/
+│   └── BUILD_PLAN.md
+└── start_dev.sh
 ```
 
----
+## Prerequisites
 
-## Setup & Running
-
-### Prerequisites
 - Python 3.11+
 - Node.js 18+
-- An Anthropic API key
+- Anthropic API key
 
-### 1. Backend
+## Setup
+
+### Backend
 
 ```bash
 cd backend
 pip install -r requirements.txt
-
-export ANTHROPIC_API_KEY=sk-ant-...   # or set in .env
-
+export ANTHROPIC_API_KEY=your_api_key_here
 python app.py
-# → Flask running on http://localhost:5000
 ```
 
-### 2. Frontend (development)
+The backend runs on `http://localhost:5000`.
+
+On Windows PowerShell, set the API key with:
+
+```powershell
+$env:ANTHROPIC_API_KEY="your_api_key_here"
+python app.py
+```
+
+### Frontend
 
 ```bash
 cd frontend
 npm install
 npm run dev
-# → Vite running on http://localhost:5173
 ```
 
-### 3. Frontend (production build)
+The frontend runs on `http://localhost:5173`.
+
+## Production Build
 
 ```bash
 cd frontend
 npm run build
-# → dist/ folder is served automatically by Flask at /
+cd ../backend
+python app.py
 ```
 
----
+After building, Flask serves the compiled frontend from `frontend/dist`.
 
-## How the Agent Tools Work
+## API Overview
 
-### `run_sql_query`
-```python
-# Claude sends:
-{ "query": "SELECT region, COUNT(*) as count FROM data WHERE survey_status='Dropout' GROUP BY region ORDER BY count DESC", "label": "Dropout count by region" }
+| Endpoint | Method | Purpose |
+| --- | --- | --- |
+| `/api/upload` | POST | Upload a CSV and create a session |
+| `/api/query` | POST | Ask a question about the active dataset |
+| `/api/sample` | GET | Load the bundled sample dataset |
+| `/api/session/<session_id>` | GET | Fetch session metadata |
+| `/api/session/<session_id>/reset` | POST | Clear chat history for a session |
 
-# Tool executes it on the SQLite DB, returns:
-{ "ok": true, "rows": 5, "data": [...] }
+## Agent Tools
+
+The backend exposes three local tools to the model:
+
+- `run_sql_query`: executes read-only SQL `SELECT` statements against the uploaded dataset.
+- `generate_chart`: runs a SQL query and renders a Matplotlib chart as a PNG.
+- `detect_anomalies`: finds outliers in numeric columns using the IQR method.
+
+SQL execution is guarded so generated queries are limited to single-statement, read-only `SELECT` queries.
+
+## Sample Questions
+
+Try these with the bundled sample dataset:
+
+- Which region has the highest dropout rate?
+- Show me a bar chart of survey status breakdown.
+- What is the average satisfaction score by region?
+- Are there anomalies in monthly income?
+- Show survey completions by month as a line chart.
+
+## Sample Data
+
+The project includes `sample_data/survey_data.csv`, a synthetic NGO field survey dataset with 300 rows. Regenerate it with:
+
+```bash
+python sample_data/generate_sample.py
 ```
 
-### `generate_chart`
-```python
-# Claude sends:
-{ "query": "SELECT region, ...", "chart_type": "bar", "x_col": "region", "y_col": "dropout_rate", "title": "Dropout Rate by Region" }
+## Notes
 
-# Tool runs the query, generates a dark-themed matplotlib PNG, returns base64
-{ "ok": true, "image_base64": "iVBOR..." }
-```
-
-### `detect_anomalies`
-```python
-# Claude sends:
-{ "column": "monthly_income_inr", "context_columns": ["region", "survey_id"] }
-
-# Tool computes Q1/Q3/IQR, returns rows outside [Q1-1.5*IQR, Q3+1.5*IQR]
-{ "ok": true, "anomaly_count": 12, "bounds": {...}, "anomalies": [...] }
-```
-
----
-
-## Connecting to Your Own Data
-
-Replace the SQLite layer with any database:
-
-```python
-# In backend/app.py, swap sqlite3 for:
-import mysql.connector  # MySQL
-import psycopg2         # PostgreSQL
-
-# Update tool_run_sql_query() to use your connector
-```
-
-The agent loop and tool definitions remain identical.
-
----
-
-## Resume Talking Points
-
-**In interviews, demo live:**
-1. Open the app, drag in a CSV (or click "Try sample dataset")
-2. Ask: *"Which region had the highest dropout?"* — watch it write SQL in real time
-3. Ask: *"Show me that as a bar chart"* — chart appears in the same conversation
-4. Ask: *"Are there anomalies in household income?"* — demonstrates the third tool
-5. Point out the "tool calls" accordion — shows the actual SQL it wrote
-
-**Key points to articulate:**
-- **Real tool-calling**, not prompt chaining — Claude decides which tools to invoke and when
-- **Multi-turn context** — follow-up questions work without re-explaining the dataset
-- **Three distinct tools** = demonstrates tool orchestration (the core skill in the Microsoft AI Agent cert)
-- **End-to-end ownership**: data layer (SQLite), agent logic (Python), API (Flask), UI (React), charts (matplotlib)
-
----
-
-## Planned Enhancements (Week 3)
-
-- [ ] Trend forecasting tool (linear regression on time series)
-- [ ] Export conversation as PDF report
-- [ ] Connect to MySQL instead of SQLite (reuse electricity bill project schema)
-- [ ] Multi-file support (join two CSVs)
-- [ ] Deploy to Render/Railway (free tier)
-
----
-
-## Sample Dataset
-
-`sample_data/survey_data.csv` — 300 synthetic NGO field survey records modelled on Somrita's internship work at Development Alternatives:
-
-| Column | Type | Description |
-|---|---|---|
-| survey_id | TEXT | Unique ID (SRV0001–SRV0300) |
-| survey_date | DATE | Date of survey |
-| region | TEXT | Delhi, Ghaziabad, Noida, Faridabad, Gurugram |
-| surveyor | TEXT | Field worker name |
-| household_size | INT | Number of people in household |
-| monthly_income_inr | INT | Household income (₹) |
-| primary_water_source | TEXT | Tap, Borewell, Hand Pump, River, Tanker |
-| sanitation_type | TEXT | Flush Toilet, Pit Latrine, etc. |
-| distance_to_water_km | FLOAT | Distance to nearest water source |
-| satisfaction_score | INT | 1–5 rating |
-| survey_status | TEXT | Complete, Partial, Dropout |
-| toilet_access | TEXT | Yes/No |
-| handwash_facility | TEXT | Yes/No |
-
-Regenerate with: `python sample_data/generate_sample.py`
-
----
-
-*Built to demonstrate real agentic AI — SQL execution + chart generation + anomaly detection as LLM-callable tools, orchestrated by Claude claude-sonnet-4-6.*
+- Do not commit `node_modules`, `.env`, build output, or local Python caches.
+- Keep `frontend/package-lock.json` committed so installs are reproducible.
+- Uploaded CSV files are converted to temporary SQLite databases at runtime.
